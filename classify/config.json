@@ -1,0 +1,23 @@
+{
+    "model" : {
+        "input_width":           128,
+        "input_height":           128,
+        "labels":               '',
+    },
+    
+    "train": {
+        "data_dir":    "",
+        "file_list":   "",
+          
+        "pretrained_weights":   "",
+        "start_epoch":          103,
+        "batch_size":           16,
+        "learning_rate":        1e-4,
+        "nb_epochs":            100,
+        "warmup_epochs":        0,
+    },
+
+    "test": {
+        "data_dir":   "",
+    }
+}
