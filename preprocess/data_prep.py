@@ -67,13 +67,9 @@ def save_ann(ann, ann_path):
     f.writelines(xml_str)
 #     f.writelines(dom.toprettyxml())
     f.close()
-    
-def img_prep(src_path, imgname, tgt_width, tgt_height, img_dir):
-    img = cv2.imread(os.path.join(src_path, imgname))
-    img_path = os.path.join(img_dir, imgname)
-    
-    src_height, src_width, _ = img.shape
 
+def img_pad(img, tgt_width, tgt_height):
+    src_height, src_width, _ = img.shape
     top, bottom, left, right = 0,0,0,0
     if src_width > src_height:
         ratio = float(tgt_width/src_width)
@@ -88,6 +84,12 @@ def img_prep(src_path, imgname, tgt_width, tgt_height, img_dir):
 
 #     print(img_path)
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0,0,0])
+    return img
+    
+def img_prep(src_path, imgname, tgt_width, tgt_height, img_dir):
+    img = cv2.imread(os.path.join(src_path, imgname))
+    img_path = os.path.join(img_dir, imgname)
+    img = img_pad(img, tgt_width, tgt_height)
     cv2.imwrite(img_path, img)
 
 def img_process(img_dir, imgname, tgt_width, tgt_height, tgt_img_dir):
