@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 import sys,os,argparse
 sys.path.append('./')
+sys.path.append('../')
 import numpy as np
 import json
+import cv2
 
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array,load_img
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.applications import mobilenet
+from tensorflow.keras.applications import InceptionV3,mobilenet,vgg16,resnet50
 from tensorflow import keras
 from model import classifier
+from preprocess import img_pad
 
 import tensorflow as tf
 print(tf.__version__)
@@ -29,7 +32,7 @@ if tf.__version__ == '1.14.0':
         tf.config.experimental.set_memory_growth(gpu, True)
         
     tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
-elif tf.__version__ == '1.11.0' or tf.__version__ == '1.13.2':
+elif tf.__version__ == '1.11.0' or tf.__version__ == '1.13.2' or tf.__version__ == '1.12.0':
     from tensorflow import ConfigProto
     from tensorflow import InteractiveSession
 
@@ -42,17 +45,19 @@ np_load_old = np.load
 np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
 
 def test_list_file(config, list_file, weights):
-    # load labels
+    
     labels_file = config['model']['labels']
+    data_dir = config['test']['data_dir']
+    input_width = config['model']['input_width']
+    input_height = config['model']['input_height']
+    
+    # load labels
     print('load label file', labels_file)
     label_dict = np.load(labels_file).item()
     class_num = len(label_dict)
     print('class num:', class_num)
     print(label_dict)
         
-    data_dir = config['test']['data_dir']
-    input_width = config['model']['input_width']
-    input_height = config['model']['input_height']
     image_size = (input_width,input_height)
     
     # train
@@ -62,10 +67,11 @@ def test_list_file(config, list_file, weights):
     keras.backend.set_session(train_sess)
     with train_graph.as_default():
     
-        cls = classifier()
-        cls.load_weights(weights_fille)
+#         cls = classifier(class_num,input_width,input_height)
+#         cls.load_weights(weights)
+        cls = load_model('body-c2-vgg-224_weights.h5', compile=False)
 
-        with open(list_file, 'r') as f:
+        with open(os.path.join(data_dir,list_file), 'r') as f:
             filelist = f.readlines()
 
         conf_thresh = 0.6
@@ -78,9 +84,23 @@ def test_list_file(config, list_file, weights):
             y_true = line.split(' ')[1]
 
             # load dataset
-            x_pred = np.array([img_to_array(load_img(img_path, target_size=image_size))]).astype('float32')
-            x_pred = mobilenet.preprocess_input(x_pred)
+            img = cv2.imread(img_path)
+            img = cv2.resize(img, (input_width, input_height))
+#             img = img_pad(img, input_width, input_height)
+            img = img[:,:,::-1]
+            x_pred = np.array([img]).astype('float32')
+#             x_pred = np.array([img])/255.0
+
+#             x_pred = np.expand_dims(img_to_array(load_img(img_path, target_size=image_size)), axis=0).astype('float32')
+            x_pred = vgg16.preprocess_input(x_pred)
             y_pred = cls.predict(x_pred)
+#             print(img_path)
+#             print(y_pred)
+            
+#             if (y_pred[0][0] > 0.99):
+#                 y_index = 0
+#             else:
+#                 y_index = 1
 
             y_index = np.argmax(y_pred[0])
             confidence = y_pred[0][y_index]
@@ -92,6 +112,7 @@ def test_list_file(config, list_file, weights):
                     n_correct = n_correct + 1
                 else:
                     print('%s,%f,%s vs %s' % (img_path, confidence, y_true, label_dict[y_index]))
+                    print(y_pred)
 
     print('confidence:%f' % (conf_thresh))
     print('correct/conf_num/total: %d/%d/%d' % (n_correct,conf_num,num))
@@ -119,16 +140,25 @@ def parse_arguments(argv):
     
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--image_file', type=str,
-                        help='image file path for predicting', default=None)
+    parser.add_argument(
+        '-i',
+        '--image_file', 
+        type=str,
+        help='image file path for predicting', default=None)
     
-    parser.add_argument('--list_file', type=str,
-                        help='image shortname list txt file for testing', default=None)
+    parser.add_argument(
+        '-l',
+        '--list_file', 
+        type=str,
+        help='image shortname list txt file for testing', default=None)
     
-    parser.add_argument('--weights', type=str,
-                        help='weights file', default=None)
+    parser.add_argument(
+        '-w',
+        '--weights', 
+        type=str,
+        help='weights file', default=None)
     
-    argparser.add_argument(
+    parser.add_argument(
         '-c',
         '--conf',
         help='path to configuration file')

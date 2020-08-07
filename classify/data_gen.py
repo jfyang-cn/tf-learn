@@ -5,25 +5,52 @@ import cv2
 from tensorflow import keras
 from tensorflow.keras.preprocessing.image import img_to_array, load_img, ImageDataGenerator
 import pandas as pd
-from tensorflow.keras.applications.inception_v3 import preprocess_input
-            
+from tensorflow.keras.applications import InceptionV3,mobilenet,vgg16,resnet50
+
 class DataGen():
     
-    def __init__(self, filepath, batch_size=8, target_size=(128,128)):
+    def __init__(self, filepath, batch_size=8, target_size=(224,224), with_aug=True):
         
         self.df = pd.read_csv(filepath, sep=' ', header=None, dtype=str)
         self.batch_size = batch_size
         self.target_size = target_size
-        self.class_num = 5
-        self.datagen = ImageDataGenerator(
-#             preprocessing_function=preprocess_input,# ((x/255)-0.5)*2
-            rotation_range=30,
-            width_shift_range=0.2,
-            height_shift_range=0.2,
-            shear_range=0.2,
-            zoom_range=0.2,
-            horizontal_flip=True,
-            rescale=1/255.
+        
+        y = self.df[1] 
+        y_ohe = pd.get_dummies(y.reset_index(drop=True)).as_matrix()
+        
+        l = np.array(y_ohe)
+        a = l==1
+
+        b = np.argwhere(a == True)
+        c = b[:,1]
+
+        iters = y.keys()
+        labels = y[iters].get_values()
+
+        # construct dict
+        label_dicts = {}
+        for i in range(len(labels)):
+            label_dicts[c[i]] = labels[i]
+        self.label_dicts = label_dicts
+        self.class_num = len(label_dicts)
+        
+        if with_aug:
+            self.datagen = ImageDataGenerator(
+                preprocessing_function=vgg16.preprocess_input,
+                rotation_range=30,
+                width_shift_range=0.2,
+                height_shift_range=0.2,
+                shear_range=0.2,
+                zoom_range=0.2,
+#                 fill_mode='constant', 
+#                 cval=0.0,
+                horizontal_flip=True,
+#                 rescale = 1./255
+                )    
+        else:
+            self.datagen = ImageDataGenerator(
+                preprocessing_function=vgg16.preprocess_input
+#                 rescale = 1./255
             )
             
     def name(self):
@@ -52,26 +79,9 @@ class DataGen():
         return generator, steps_per_epoch
     
     def save_labels(self, filepath=None):
-        
-        y = self.df[1] 
-        y_ohe = pd.get_dummies(y.reset_index(drop=True)).as_matrix()
-        
-        l = np.array(y_ohe)
-        a = l==1
-
-        b = np.argwhere(a == True)
-        c = b[:,1]
-
-        iters = y.keys()
-        labels = y[iters].get_values()
-
-        # construct dict
-        label_dicts = {}
-        for i in range(len(labels)):
-            label_dicts[c[i]] = labels[i]
 
         if filepath is None:
             filepath = self.name()+'_labels.npy'
             
-        np.save(filepath, label_dicts)
+        np.save(filepath, self.label_dicts)
         print(filepath, ' saved.')
