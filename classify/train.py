@@ -65,9 +65,9 @@ def train(config):
         os.makedirs(dirname)
 
     timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_loss:.2f}.hdf5' %(model_name, timestr))
+    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_acc:.2f}.hdf5' %(model_name, timestr))
     checkpoint = ModelCheckpoint(filepath=filepath, 
-                             monitor='val_loss',    # acc outperforms loss
+                             monitor='val_acc',    # acc outperforms loss
                              verbose=1, 
                              save_best_only=True, 
                              save_weights_only=True, 
@@ -87,7 +87,7 @@ def train(config):
     tf.keras.backend.set_session(train_sess)
     with train_graph.as_default():
         cls = classifier(train_gen.class_num,input_width,input_height)
-        cls.compile(optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate), loss='categorical_crossentropy')
+        cls.compile(optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate), loss='categorical_crossentropy',metrics=['accuracy'])
         cls.summary()
 
         # Load weight of unfinish training model(optional)
@@ -101,7 +101,7 @@ def train(config):
                           callbacks=[checkpoint,tensorboard], 
                           use_multiprocessing=False, 
                           workers=16)
-        cls.save('%s_weights.h5' % (model_name))
+        cls.save('%s_%s.h5' % (model_name,timestr))
 
 def main(args):
     

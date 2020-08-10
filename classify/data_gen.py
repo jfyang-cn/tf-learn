@@ -2,10 +2,10 @@
 import os
 import numpy as np
 import cv2
+import pandas as pd
 from tensorflow import keras
 from tensorflow.keras.preprocessing.image import img_to_array, load_img, ImageDataGenerator
-import pandas as pd
-from tensorflow.keras.applications import InceptionV3,mobilenet,vgg16,resnet50
+from tensorflow.keras.applications import inception_v3,mobilenet,vgg16,resnet50
 
 class DataGen():
     
@@ -33,10 +33,12 @@ class DataGen():
             label_dicts[c[i]] = labels[i]
         self.label_dicts = label_dicts
         self.class_num = len(label_dicts)
+
+        preprocess_input = vgg16.preprocess_input
         
         if with_aug:
             self.datagen = ImageDataGenerator(
-                preprocessing_function=vgg16.preprocess_input,
+                preprocessing_function=preprocess_input,
                 rotation_range=30,
                 width_shift_range=0.2,
                 height_shift_range=0.2,
@@ -49,7 +51,7 @@ class DataGen():
                 )    
         else:
             self.datagen = ImageDataGenerator(
-                preprocessing_function=vgg16.preprocess_input
+                preprocessing_function=preprocess_input
 #                 rescale = 1./255
             )
             
@@ -70,7 +72,7 @@ class DataGen():
 #             seed=42,
 #             shuffle=True,
             seed=1,
-            shuffle=False,
+            shuffle=True,
             class_mode="categorical", #categorical
             target_size=self.target_size)
         
