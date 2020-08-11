@@ -31,7 +31,7 @@ if tf.__version__ == '1.14.0':
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
         
-    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
+    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.4
 elif tf.__version__ == '1.11.0' or tf.__version__ == '1.13.2' or tf.__version__ == '1.12.0':
     from tensorflow import ConfigProto
     from tensorflow import InteractiveSession

@@ -45,6 +45,7 @@ def train(config):
     learning_rate      = config['train']['learning_rate']
     nb_epochs          = config['train']['nb_epochs']
     start_epoch        = config['train']['start_epoch']
+    train_base         = config['train']['train_base']
     
     valid_data_dir     = config['valid']['data_dir']
     valid_file_list    = config['valid']['file_list']
@@ -86,7 +87,7 @@ def train(config):
 
     tf.keras.backend.set_session(train_sess)
     with train_graph.as_default():
-        cls = classifier(train_gen.class_num,input_width,input_height)
+        cls = classifier(train_gen.class_num,input_width,input_height,train_base)
         cls.compile(optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate), loss='categorical_crossentropy',metrics=['accuracy'])
         cls.summary()
 
@@ -101,7 +102,9 @@ def train(config):
                           callbacks=[checkpoint,tensorboard], 
                           use_multiprocessing=False, 
                           workers=16)
-        cls.save('%s_%s.h5' % (model_name,timestr))
+        model_file = '%s_%s.h5' % (model_name,timestr)
+        cls.save(model_file)
+        print('save model to %s' % (model_file))
 
 def main(args):
     

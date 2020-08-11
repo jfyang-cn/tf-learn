@@ -3,7 +3,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications import inception_v3,mobilenet,vgg16,resnet50
 
-def classifier(classs_num=5, input_width=224, input_height=224):
+def classifier(classs_num=5, input_width=224, input_height=224, train_base=False):
 
     # mobilenet
 #     base_model = mobilenet.MobileNet(include_top=False, weights="imagenet", input_tensor=Input(shape=(224,224,3)))
@@ -43,7 +43,7 @@ def classifier(classs_num=5, input_width=224, input_height=224):
     model = Model(inputs=base_model.input,outputs=predictions)
     
     for layer in base_model.layers:
-        layer.trainable = False
+        layer.trainable = train_base
 
     return model
 
