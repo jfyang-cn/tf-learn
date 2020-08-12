@@ -8,8 +8,9 @@ from tensorflow.keras.preprocessing.image import img_to_array,load_img
 from tensorflow.keras.applications import inception_v3,mobilenet,vgg16,resnet50
 from tensorflow import keras
 from tensorflow.keras.models import Model
-from model import classifier
+# from model import classifier
 from matplotlib import pyplot as plt
+from builder import ModelBuilder
 
 import tensorflow as tf
 print(tf.__version__)
@@ -27,14 +28,14 @@ if tf.__version__ == '1.14.0':
         tf.config.experimental.set_memory_growth(gpu, True)
         
     tf_config.gpu_options.per_process_gpu_memory_fraction = 0.3
-elif tf.__version__ == '1.11.0' or tf.__version__ == '1.13.2':
+elif tf.__version__ == '1.11.0' or tf.__version__ == '1.13.2' or tf.__version__ == '1.12.0':
     from tensorflow import ConfigProto
     from tensorflow import InteractiveSession
 
     tf_config = ConfigProto(allow_soft_placement=True)
     tf_config.gpu_options.allow_growth = True
         
-    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
+    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.3
 
 np_load_old = np.load
 np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
@@ -60,6 +61,10 @@ def layer_visualize(config, img_file, weights, model_file, layer_name):
     print('class num:', class_num)
     print(label_dict)
     
+    #
+    builder = ModelBuilder(config)
+    preprocess_input = builder.preprocess_input
+
     visdir = 'visual'
     if not os.path.exists(visdir):
         os.makedirs(visdir)
@@ -78,7 +83,7 @@ def layer_visualize(config, img_file, weights, model_file, layer_name):
         if model_file is not None:
             cls = load_model(model_file, compile=False)
         elif weights:
-            cls = classifier(class_num,input_width,input_height)
+            cls = builder.build_model()
             cls.load_weights(weights)
         else:
             print('either weights or model file should be specified.')
@@ -93,8 +98,6 @@ def layer_visualize(config, img_file, weights, model_file, layer_name):
         img = img[:,:,::-1]
         x_pred = np.array([img]).astype('float32')
 #       x_pred = np.array([img])/255.0
-
-        preprocess_input = vgg16.preprocess_input
 
 #       x_pred = np.expand_dims(img_to_array(load_img(img_path, target_size=image_size)), axis=0).astype('float32')
         x_pred = preprocess_input(x_pred)
