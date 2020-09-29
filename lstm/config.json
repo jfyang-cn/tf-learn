@@ -1,0 +1,31 @@
+{
+    "model": {
+        "name":                 "action",
+        "input_width":          224,
+        "input_height":         224,
+        "class_num":            6,
+        "channels":             3,
+        "sequence":             8,
+        "labels":               "not used",
+        "backbone":             "mobilenetV2"
+    },
+    "train": {
+        "data_dir":             "/home/youname/git/dataset/KARD",
+        "file_list":            "dataset_list/trainlistKARD6.txt",
+        "pretrained_weights":   "",
+        "start_epoch":          0,
+        "batch_size":           4,
+        "learning_rate":        1e-4,
+        "nb_epochs":            100,
+        "warmup_epochs":        0,
+        "train_base":           false
+    },
+    "valid": {
+        "data_dir":             "/home/youname/git/dataset/KARD",
+        "file_list":            "dataset_list/testlistKARD6.txt"
+    },
+    "test": {
+        "data_dir":             "/home/youname/git/dataset/KARD",
+        "file_list":            "test.txt"
+    }
+}
