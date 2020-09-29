@@ -13,8 +13,9 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.applications import inception_v3,mobilenet,vgg16,resnet50
 from tensorflow import keras
-from model import classifier
+# from model import classifier
 from preprocess import img_pad
+from builder import ModelBuilder
 
 import tensorflow as tf
 print(tf.__version__)
@@ -57,27 +58,33 @@ def test_list_file(config, list_file, weights, model_file):
     class_num = len(label_dict)
     print('class num:', class_num)
     print(label_dict)
-        
+
+    #
+    builder = ModelBuilder(config)
+    preprocess_input = builder.preprocess_input
+
     image_size = (input_width,input_height)
     
     # train
     train_graph = tf.Graph()
     train_sess = tf.Session(graph=train_graph,config=tf_config)
 
+    error_list = []
+    name_list = []
     keras.backend.set_session(train_sess)
     with train_graph.as_default():
     
         if model_file is not None:
             cls = load_model(model_file, compile=False)
         elif weights:
-            cls = classifier(class_num,input_width,input_height)
+            cls = builder.build_model()
             cls.load_weights(weights)
         else:
             print('either weights or model file should be specified.')
 
         with open(os.path.join(data_dir,list_file), 'r') as f:
             filelist = f.readlines()
-
+            
         conf_thresh = 0.6
         conf_num = 0
         num = 0
@@ -94,8 +101,6 @@ def test_list_file(config, list_file, weights, model_file):
             img = img[:,:,::-1]
             x_pred = np.array([img]).astype('float32')
 #             x_pred = np.array([img])/255.0
-
-            preprocess_input = vgg16.preprocess_input
 
 #             x_pred = np.expand_dims(img_to_array(load_img(img_path, target_size=image_size)), axis=0).astype('float32')
             x_pred = preprocess_input(x_pred)
@@ -118,13 +123,25 @@ def test_list_file(config, list_file, weights, model_file):
                     n_correct = n_correct + 1
                 else:
                     print('%s,%f,%s vs %s' % (img_path, confidence, y_true, label_dict[y_index]))
+                    error_list.append(img_path)
+                    name_list.append(label_dict[y_index])
 #                     print(y_pred)
 
     print('confidence:%f' % (conf_thresh))
     print('correct/conf_num/total: %d/%d/%d' % (n_correct,conf_num,num))
     print('precision: %f,%f' % (n_correct/num, n_correct/conf_num))
     
+    print('totoal error:', len(error_list))
+    print('error_list = [')
+    for i,error_path in enumerate(error_list):
+        print('\'%s\', # %d' % (error_path,i))
+    print(']')
     
+    print('name_list = [')
+    for name in name_list:
+        print('\'%s\',' % (name))
+    print(']')
+
 def main(args):
     
     config_path = args.conf

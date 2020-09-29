@@ -9,7 +9,7 @@ from tensorflow.keras.applications import inception_v3,mobilenet,vgg16,resnet50
 
 class DataGen():
     
-    def __init__(self, filepath, batch_size=8, target_size=(224,224), with_aug=True):
+    def __init__(self, filepath, batch_size=8, target_size=(224,224), preprocess_input=None, with_aug=True):
         
         self.df = pd.read_csv(filepath, sep=' ', header=None, dtype=str)
         self.batch_size = batch_size
@@ -33,8 +33,6 @@ class DataGen():
             label_dicts[c[i]] = labels[i]
         self.label_dicts = label_dicts
         self.class_num = len(label_dicts)
-
-        preprocess_input = vgg16.preprocess_input
         
         if with_aug:
             self.datagen = ImageDataGenerator(

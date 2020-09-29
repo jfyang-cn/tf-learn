@@ -3,8 +3,9 @@ import numpy as np
 import json
 from tensorflow.keras.callbacks import ModelCheckpoint,TensorBoard
 from tensorflow.keras import callbacks
-from data_gen import DataGen
-from model import classifier
+# from data_gen import DataGen
+# from model import classifier
+from builder import ModelBuilder
 
 import tensorflow as tf
 print(tf.__version__)
@@ -36,7 +37,7 @@ def train(config):
     input_width        = config['model']['input_width']
     input_height       = config['model']['input_height']
     label_file         = config['model']['labels']
-    model_name             = config['model']['name']
+    model_name         = config['model']['name']
     
     train_data_dir     = config['train']['data_dir']
     train_file_list    = config['train']['file_list']
@@ -50,13 +51,15 @@ def train(config):
     valid_data_dir     = config['valid']['data_dir']
     valid_file_list    = config['valid']['file_list']
     
+    builder = ModelBuilder(config)
+    
     filepath = os.path.join(train_data_dir, train_file_list)
-    train_gen = DataGen(filepath, batch_size, target_size=(input_width,input_height))
+    train_gen = builder.build_datagen(filepath)
     train_gen.save_labels(label_file)
     trainDataGen, train_steps_per_epoch = train_gen.from_frame(directory=train_data_dir)
     
     filepath = os.path.join(valid_data_dir, valid_file_list)
-    valid_gen = DataGen(filepath, batch_size, target_size=(input_width,input_height))
+    valid_gen = builder.build_datagen(filepath, with_aug=False)
     validDataGen, valid_steps_per_epoch = valid_gen.from_frame(directory=valid_data_dir)
 
     # define checkpoint
@@ -87,7 +90,7 @@ def train(config):
 
     tf.keras.backend.set_session(train_sess)
     with train_graph.as_default():
-        cls = classifier(train_gen.class_num,input_width,input_height,train_base)
+        cls = builder.build_model()
         cls.compile(optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate), loss='categorical_crossentropy',metrics=['accuracy'])
         cls.summary()
 
