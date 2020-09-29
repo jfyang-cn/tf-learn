@@ -1,7 +1,7 @@
 {
     "model" : {
-        "input_width":           128,
-        "input_height":           128,
+        "input_width":          128,
+        "input_height":         128,
         "labels":               '',
     },
     
