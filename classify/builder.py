@@ -8,11 +8,13 @@ class ModelBuilder():
     def __init__(self, config):
         
         self.config = config
-        
+
         if self.config['model']['backbone'] == 'vgg16':
             self.preprocess_input = vgg16.preprocess_input
         elif self.config['model']['backbone'] == 'resnet50':
             self.preprocess_input = resnet50.preprocess_input
+        elif self.config['model']['backbone'] == 'inception_v3':
+            self.preprocess_input = inception_v3.preprocess_input
         else:
             self.preprocess_input = None
         

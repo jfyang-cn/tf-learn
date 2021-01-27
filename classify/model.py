@@ -22,6 +22,9 @@ def classifier(classs_num=5, input_width=224, input_height=224, backbone='vgg16'
             x = base_model.output
         else:
             x = base_model.get_layer('activation_21').output
+    elif backbone == 'inception_v3':
+        base_model = inception_v3.InceptionV3(include_top=False, weights="imagenet", input_tensor=Input(shape=(input_width,input_height,3)))
+        x = base_model.output
     else:
         pass
 
