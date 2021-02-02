@@ -16,7 +16,7 @@ class DataGen():
         self.target_size = target_size
         
         y = self.df[1] 
-        y_ohe = pd.get_dummies(y.reset_index(drop=True)).as_matrix()
+        y_ohe = pd.get_dummies(y.reset_index(drop=True)).values
         
         l = np.array(y_ohe)
         a = l==1
@@ -25,7 +25,7 @@ class DataGen():
         c = b[:,1]
 
         iters = y.keys()
-        labels = y[iters].get_values()
+        labels = y[iters].to_numpy()
 
         # construct dict
         label_dicts = {}
@@ -51,10 +51,7 @@ class DataGen():
             self.datagen = ImageDataGenerator(
                 preprocessing_function=preprocess_input
 #                 rescale = 1./255
-            )
-            
-    def name(self):
-        return 'helmet'   
+            )            
     
     def from_frame(self, directory=None):
             

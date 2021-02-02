@@ -3,34 +3,15 @@ import numpy as np
 import json
 from tensorflow.keras.callbacks import ModelCheckpoint,TensorBoard
 from tensorflow.keras import callbacks
-# from data_gen import DataGen
-# from model import classifier
 from builder import ModelBuilder
 
 import tensorflow as tf
 print(tf.__version__)
 
-# tensorflow allocates all gpu memory, set a limit to avoid CUDA ERROR
-if tf.__version__ == '1.14.0':
-    from tensorflow.compat.v1 import ConfigProto
-    from tensorflow.compat.v1 import InteractiveSession
-
-    tf_config = ConfigProto(allow_soft_placement=True)
-    tf_config.gpu_options.allow_growth = True
-        
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
-        
-    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
-elif tf.__version__ == '1.11.0' or tf.__version__ == '1.13.2' or tf.__version__ == '1.12.0':
-    from tensorflow import ConfigProto
-    from tensorflow import InteractiveSession
-
-    tf_config = ConfigProto(allow_soft_placement=True)
-    tf_config.gpu_options.allow_growth = True
-        
-    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+print(physical_devices)
+tf.config.experimental.set_visible_devices(physical_devices[2:], 'GPU')
+#tf.config.experimental.set_memory_growth(physical_devices[0], True)
     
 def train(config):
     
@@ -38,6 +19,7 @@ def train(config):
     input_height       = config['model']['input_height']
     label_file         = config['model']['labels']
     model_name         = config['model']['name']
+    class_num          = config['model']['class_num']
     
     train_data_dir     = config['train']['data_dir']
     train_file_list    = config['train']['file_list']
@@ -52,16 +34,33 @@ def train(config):
     valid_file_list    = config['valid']['file_list']
     
     builder = ModelBuilder(config)
-    
-    filepath = os.path.join(train_data_dir, train_file_list)
+
+    filepath = train_file_list
     train_gen = builder.build_datagen(filepath)
     train_gen.save_labels(label_file)
     trainDataGen, train_steps_per_epoch = train_gen.from_frame(directory=train_data_dir)
+    trainDs = tf.data.Dataset.from_generator(
+        lambda: trainDataGen, 
+        output_types=(tf.float32, tf.float32), 
+        output_shapes=([batch_size,input_width,input_height,3], [batch_size,class_num])
+    )
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    trainDs = trainDs.with_options(options)
+
     
-    filepath = os.path.join(valid_data_dir, valid_file_list)
+    filepath = valid_file_list
     valid_gen = builder.build_datagen(filepath, with_aug=False)
     validDataGen, valid_steps_per_epoch = valid_gen.from_frame(directory=valid_data_dir)
-
+    validDs = tf.data.Dataset.from_generator(
+        lambda: validDataGen, 
+        output_types=(tf.float32, tf.float32), 
+        output_shapes=([batch_size,input_width,input_height,3], [batch_size,class_num])
+    )    
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    validDs = validDs.with_options(options)    
+    
     # define checkpoint
     dataset_name = model_name
     dirname = 'ckpt-' + dataset_name
@@ -69,13 +68,13 @@ def train(config):
         os.makedirs(dirname)
 
     timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_acc:.2f}.hdf5' %(model_name, timestr))
+    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_accuracy:.2f}.hdf5' %(model_name, timestr))
     checkpoint = ModelCheckpoint(filepath=filepath, 
-                             monitor='val_acc',    # acc outperforms loss
+                             monitor='val_accuracy',    # acc outperforms loss
                              verbose=1, 
                              save_best_only=True, 
                              save_weights_only=True, 
-                             period=1)
+                             period=5)
 
     # define logs for tensorboard
     tensorboard = TensorBoard(log_dir='logs', histogram_freq=0)
@@ -85,28 +84,39 @@ def train(config):
         os.makedirs(wgtdir)
 
     # train
-    train_graph = tf.Graph()
-    train_sess = tf.Session(graph=train_graph,config=tf_config)
+    # tf2.5
+    strategy = tf.distribute.MirroredStrategy()
+    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
-    tf.keras.backend.set_session(train_sess)
-    with train_graph.as_default():
-        cls = builder.build_model()
-        cls.compile(optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate), loss='categorical_crossentropy',metrics=['accuracy'])
-        cls.summary()
+    # Open a strategy scope.
+    with strategy.scope():
+        model = builder.build_model()
+
+        # tf2.5
+        if class_num == 2:
+            model.compile(optimizer=tf.optimizers.Adam(learning_rate=learning_rate), 
+                          loss='categorical_crossentropy',metrics=['accuracy'])
+        else:
+            model.compile(optimizer=tf.optimizers.Adam(learning_rate=learning_rate), 
+                          loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+        model.summary()
 
         # Load weight of unfinish training model(optional)
         if pretrained_weights != '':
-            cls.load_weights(pretrained_weights)
+            model.load_weights(pretrained_weights)
 
-        cls.fit_generator(generator = trainDataGen,
-                          validation_data = validDataGen,
+        model.fit(trainDs,
+                  batch_size = batch_size,
+                  steps_per_epoch=train_steps_per_epoch,
+                          validation_data = validDs,
+                  validation_steps=valid_steps_per_epoch,
                           initial_epoch=start_epoch, 
                           epochs=nb_epochs, 
                           callbacks=[checkpoint,tensorboard], 
-                          use_multiprocessing=False, 
+                          use_multiprocessing=True, 
                           workers=16)
         model_file = '%s_%s.h5' % (model_name,timestr)
-        cls.save(model_file)
+        model.save(model_file)
         print('save model to %s' % (model_file))
 
 def main(args):
