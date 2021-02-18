@@ -3,22 +3,24 @@ from tensorflow import keras
 import cv2
 import os
 import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from data_helper import calculateRGBdiff, readfile_to_dict
 from tensorflow.python.keras.utils.data_utils import Sequence
 
 class DataGen(Sequence):
     'Generates data for Keras'
-    def __init__(self, filepath, batch_size=32, dim=(32,32), 
+    def __init__(self, filepath, batch_size=32, class_num=2, dim=(32,32), 
                 n_channels=1,n_sequence=4, preprocess_input=None, with_aug=True, shuffle=True, path_dataset=None,
                 type_gen='train', option=None):
         'Initialization'
         
         data_dict = readfile_to_dict(filepath)
-        data_keys = list(data_dict.keys())       
+        data_keys = list(data_dict.keys())
         
         self.dim = dim
         self.batch_size = batch_size
+        self.class_num = class_num
         self.labels = data_dict
         self.list_IDs = data_keys
         self.n_channels = n_channels
@@ -28,7 +30,8 @@ class DataGen(Sequence):
         self.type_gen = type_gen
         self.option = option
         self.aug_gen = ImageDataGenerator() 
-        print("all:", len(self.list_IDs), " batch per epoch", int(np.floor(len(self.list_IDs) / self.batch_size)) )
+        self.steps_per_epoch = len(self.list_IDs) // self.batch_size
+        print("all:", len(self.list_IDs), " batch per epoch", self.steps_per_epoch)
         self.on_epoch_end()
 
     def __len__(self):
@@ -123,7 +126,7 @@ class DataGen(Sequence):
         'Generates data containing batch_size samples'
         # Initialization
         X = np.empty((self.batch_size, self.n_sequence, *self.dim, self.n_channels)) # X : (n_samples, *dim, n_channels)
-        Y = np.empty((self.batch_size), dtype=int)
+        Y = np.zeros((self.batch_size, self.class_num))
         
         for i, ID in enumerate(list_IDs_temp):  # ID is name of file
             path_file = os.path.join(self.path_dataset,ID)            
@@ -134,8 +137,11 @@ class DataGen(Sequence):
             for j, n_pic in enumerate(index_sampling):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, n_pic) # jump to that index
                 ret, frame = cap.read()
-                new_image = cv2.resize(frame, self.dim)   
-                X[i,j,:,:,:] = new_image
+                if ret is True:
+                    new_image = cv2.resize(frame, self.dim)   
+                    X[i,j,:,:,:] = new_image
+                else:
+                    print('read file ', path_file, 'error', length_file, n_pic)
 
             if self.type_gen =='train':
                 X[i,] = self.sequence_augment(X[i,])    # apply the same rule
@@ -145,8 +151,7 @@ class DataGen(Sequence):
             if self.option == 'RGBdiff':
                 X[i,] = calculateRGBdiff(X[i,])
 
-            Y[i] = self.labels[ID]
+            Y[i][self.labels[ID]-1] = 1.0
             cap.release()
 
         return X, Y
-

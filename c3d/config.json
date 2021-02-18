@@ -1,29 +1,29 @@
 {
     "model": {
-        "name":                 "KARD",
+        "name":                 "ucf101",
         "input_width":          112,
         "input_height":         112,
         "input_depth":          16,
-        "class_num":            6,
-        "labels":               "kard_labels.npy",
+        "class_num":            101,
+        "labels":               "ucf101_labels.npy",
         "backbone":             ""
     },
     "train": {
-        "data_dir":             "/home/philyang/git/dataset/KARD/",
+        "data_dir":             "/home/philyang/git/dataset/ucf101/ucf",
         "file_list":            "train.txt",
         "pretrained_weights":   "",
         "start_epoch":          0,
-        "batch_size":           4,
+        "batch_size":           16,
         "learning_rate":        1e-4,
-        "nb_epochs":            500,
+        "nb_epochs":            10,
         "warmup_epochs":        0,
         "train_base":           false
     },
     "valid": {
-        "data_dir":             "/home/philyang/git/dataset/KARD/",
+        "data_dir":             "/home/philyang/git/dataset/ucf101/ucf",
         "file_list":            "val.txt"
     },
     "test": {
-        "data_dir":             "/home/philyang/git/dataset/KARD/"
+        "data_dir":             "/home/philyang/git/dataset/ucf101/ucf"
     }
 }

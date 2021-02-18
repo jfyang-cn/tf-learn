@@ -29,8 +29,9 @@ class ModelBuilder():
         input_width   = self.config['model']['input_width']
         input_height  = self.config['model']['input_height']
         input_depth   = self.config['model']['input_depth']
+        class_num     = self.config['model']['class_num']
 
-        return DataGen(filepath,batch_size,(input_width,input_height),3,input_depth,
+        return DataGen(filepath,batch_size,class_num,(input_width,input_height),3,input_depth,
                        self.preprocess_input,with_aug,True,data_dir,'train',None)
     
     def build_valid_datagen(self, filepath, with_aug=True):
@@ -40,6 +41,7 @@ class ModelBuilder():
         input_width   = self.config['model']['input_width']
         input_height  = self.config['model']['input_height']
         input_depth   = self.config['model']['input_depth']
+        class_num     = self.config['model']['class_num']
 
-        return DataGen(filepath,batch_size,(input_width,input_height),3,input_depth,
+        return DataGen(filepath,batch_size,class_num,(input_width,input_height),3,input_depth,
                        self.preprocess_input,with_aug,False,data_dir,'valid',None)
