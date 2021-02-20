@@ -34,9 +34,11 @@ def train(config):
     
     input_width        = config['model']['input_width']
     input_height       = config['model']['input_height']
+    input_depth        = config['model']['input_depth']
     label_file         = config['model']['labels']
     model_name         = config['model']['name']
-    
+    class_num          = config['model']['class_num']
+
     train_data_dir     = config['train']['data_dir']
     train_file_list    = config['train']['file_list']
     pretrained_weights = config['train']['pretrained_weights']
@@ -51,14 +53,18 @@ def train(config):
 
     builder = ModelBuilder(config)
     
-    filepath = os.path.join(train_data_dir, train_file_list)
+    monitorStr = 'acc'
+    filepath = train_file_list
     train_gen = builder.build_train_datagen(filepath)
 #     train_gen.save_labels(label_file)
 #     trainDataGen, train_steps_per_epoch = train_gen.from_frame(directory=train_data_dir)
-    
-    filepath = os.path.join(valid_data_dir, valid_file_list)
-    valid_gen = builder.build_valid_datagen(filepath)
+
+    valid_gen = None
+    if valid_file_list is not None and valid_file_list != '':
+        filepath = os.path.join(valid_data_dir, valid_file_list)
+        valid_gen = builder.build_valid_datagen(filepath)
 #     validDataGen, valid_steps_per_epoch = valid_gen.from_frame(directory=valid_data_dir)
+        monitorStr = 'val_acc'
 
     # define checkpoint
     dirname = 'ckpt-' + model_name
@@ -66,9 +72,9 @@ def train(config):
         os.makedirs(dirname)
 
     timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_acc:.2f}.hdf5' %(model_name, timestr))
+    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{%s:.2f}.hdf5' %(model_name, timestr, monitorStr))
     checkpoint = ModelCheckpoint(filepath=filepath, 
-                             monitor='val_acc',    # acc outperforms loss
+                             monitor=monitorStr,    # acc outperforms loss
                              verbose=1, 
                              save_best_only=True, 
                              save_weights_only=True, 
@@ -89,12 +95,12 @@ def train(config):
     with train_graph.as_default():
         model = builder.build_model()
         model.compile(optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate), 
-                      loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+                      loss='categorical_crossentropy',metrics=['accuracy'])
         model.summary()
 
         # Load weight of unfinish training model(optional)
         if pretrained_weights != '':
-            model.load_weights(pretrained_weights)
+            model.load_weights(pretrained_weights,by_name=True)
 
         model.fit_generator(generator = train_gen,
                           validation_data = valid_gen,

@@ -34,8 +34,13 @@ def c3d(class_num,input_width,input_height,input_depth,backbone,train_base):
     x = Dropout(0.5)(x)
     x = Dense(2048,activation='relu',kernel_regularizer=l2(weight_decay))(x)
     x = Dropout(0.5)(x)
-    x = Dense(class_num,kernel_regularizer=l2(weight_decay))(x)
+    x = Dense(class_num,kernel_regularizer=l2(weight_decay),name='top_%s' % (class_num))(x)
     x = Activation('softmax')(x)
 
     model = Model(inputs, x)
+    
+    for i,layer in enumerate(model.layers):
+        if i <= 15:
+            layer.trainable = train_base
+    
     return model
