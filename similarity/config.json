@@ -1,0 +1,28 @@
+{
+    "model": {
+        "name":                 "similarity",
+        "input_width":          112,
+        "input_height":         112,
+        "class_num":            2,
+        "labels":               "similarity_label.npy",
+        "backbone":             "inception_v3"
+    },
+    "train": {
+        "data_dir":             "/home/philyang/git/dataset/dizhi/17/day",
+        "file_list":            "train32.txt",
+        "pretrained_weights":   "",
+        "start_epoch":          0,
+        "batch_size":           32,
+        "learning_rate":        1e-4,
+        "nb_epochs":            300,
+        "warmup_epochs":        0,
+        "train_base":           false
+    },
+    "valid": {
+        "data_dir":             "/home/philyang/git/cv-learn/region_proposal/segs",
+        "file_list":            ""
+    },
+    "test": {
+        "data_dir":             "/home/philyang/git/dataset/dizhi/17/day"
+    }
+}
