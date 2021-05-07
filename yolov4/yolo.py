@@ -48,7 +48,7 @@ class YOLO(object):
         "max_boxes"         : 100,
         # 显存比较小可以使用416x416
         # 显存比较大可以使用608x608
-        "model_image_size"  : (416, 416),
+        "model_image_size"  : (608, 608),
         #---------------------------------------------------------------------#
         #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
         #   在多次测试后，发现关闭letterbox_image直接resize的效果更好

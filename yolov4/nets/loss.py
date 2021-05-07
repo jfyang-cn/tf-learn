@@ -48,8 +48,8 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     #   box_xy对应框的中心点
     #   box_wh对应框的宽和高
     #---------------------------------------------------#
-    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
-    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
+    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[...,::-1], K.dtype(feats))
+    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[...,::-1], K.dtype(feats))
     box_confidence = K.sigmoid(feats[..., 4:5])
     box_class_probs = K.sigmoid(feats[..., 5:])
 
@@ -203,7 +203,7 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, label_smoothing=0.1,
         #-----------------------------------------------------------#
         #   在这个地方进行一个循环、循环是对每一张图片进行的
         #-----------------------------------------------------------#
-        _, ignore_mask = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+        _, ignore_mask = tf.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
 
         #-----------------------------------------------------------#
         #   ignore_mask用于提取出作为负样本的特征点
