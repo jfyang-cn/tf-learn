@@ -229,11 +229,15 @@ class DataGen(Sequence):
         coco=COCO(filepath)
         print(f'Annotation file: {filepath}')
 
-        label_dict = {}
+        label_dict = {}            
         for i,class_id in enumerate(coco.cats.keys()):
-            label_dict[class_id] = i
-        
+            label_dict[class_id] = i        
         print(len(label_dict.keys()))
+        list_ids = list(coco.imgs.keys())
+        
+#         label_dict[1] = 0
+#         label_dict[3] = 1    
+#         list_ids = list(coco.getImgIds(catIds=[1,3]))
         
         self.anchors = anchors
         self.coco = coco
@@ -241,7 +245,7 @@ class DataGen(Sequence):
         self.batch_size = batch_size
         self.class_num = class_num
         self.labels = label_dict
-        self.list_IDs = list(coco.imgs.keys())
+        self.list_IDs = list_ids
         self.n_channels = n_channels
         self.shuffle = shuffle
         self.path_dataset = path_dataset
@@ -287,7 +291,8 @@ class DataGen(Sequence):
             for ann in anns:
                 bbox = ann['bbox']
                 class_id = ann['category_id']
-                boxes.append([bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3],self.labels[class_id]])
+                if self.labels.__contains__(class_id):
+                    boxes.append([bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3],self.labels[class_id]])
 
 #             print(np.array(boxes))
             
