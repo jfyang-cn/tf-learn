@@ -16,6 +16,19 @@ print(physical_devices)
 tf.config.experimental.set_visible_devices(physical_devices[0:], 'GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
+# Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+try:
+    tf.config.experimental.set_virtual_device_configuration(
+        physical_devices[0],
+        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6144)])
+    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    print(len(physical_devices), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+except RuntimeError as e:
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
+
+is_debug = True
+
 def train(config):
     
     input_width        = config['model']['input_width']
@@ -60,6 +73,10 @@ def train(config):
 #     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 #     validDs = validDs.with_options(options)    
     
+    if is_debug:
+        train_steps_per_epoch = 30
+        valid_steps_per_epoch = 5
+    
     # define checkpoint
     dataset_name = model_name
     dirname = 'ckpt-' + dataset_name
@@ -67,13 +84,13 @@ def train(config):
         os.makedirs(dirname)
 
     timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_accuracy:.2f}.hdf5' %(model_name, timestr))
+    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_loss:.2f}.hdf5' %(model_name, timestr))
     checkpoint = ModelCheckpoint(filepath=filepath, 
                              monitor='val_loss',    # acc outperforms loss
                              verbose=1, 
                              save_best_only=True, 
                              save_weights_only=True, 
-                             period=5)
+                             period=1)
     
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
@@ -90,36 +107,41 @@ def train(config):
     strategy = tf.distribute.MirroredStrategy()
     print("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
-    # Open a strategy scope.
-    with strategy.scope():
-        model = builder.build_model()
-        model.compile(optimizer=tf.optimizers.Adam(learning_rate), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
-        model.summary()
-        
-        # Load weight of unfinish training model(optional)
-        if pretrained_weights != '':
-            model.load_weights(pretrained_weights)
+    try:    
+        # Open a strategy scope.
+        with strategy.scope():
+            model = builder.build_model()
+            model.compile(optimizer=tf.optimizers.Adam(learning_rate), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+            model.summary()
 
-        model.fit(train_gen,
-#                   batch_size = batch_size,
-                  steps_per_epoch=train_steps_per_epoch,
-                  validation_data = valid_gen,
-                  validation_steps=valid_steps_per_epoch,
-                  initial_epoch=start_epoch, 
-                  epochs=nb_epochs, 
-                  callbacks=[checkpoint,tensorboard,reduce_lr,early_stopping], 
-                  use_multiprocessing=False, 
-                  workers=4)
-        model_file = '%s_%s.h5' % (model_name,timestr)
-        model.save(model_file)
-        print('save model to %s' % (model_file))
+            # Load weight of unfinish training model(optional)
+            if pretrained_weights != '':
+                model.load_weights(pretrained_weights)
+
+            model.fit(train_gen,
+    #                   batch_size = batch_size,
+                      steps_per_epoch=train_steps_per_epoch,
+                      validation_data = valid_gen,
+                      validation_steps=valid_steps_per_epoch,
+                      initial_epoch=start_epoch, 
+                      epochs=nb_epochs, 
+                      callbacks=[checkpoint,tensorboard,reduce_lr,early_stopping], 
+                      use_multiprocessing=False, 
+                      workers=4)
+            model_file = '%s_%s.h5' % (model_name,timestr)
+            model.save(model_file)
+            print('save model to ', model_file)
+    except IndexError:
+        pass  # There was a "pop from empty list" error in "tensorflow/python/distribute/distribution_strategy_context.py" that I'm ignoring
 
 def main(args):
     
     config_path = args.conf
     
     with open(config_path) as config_buffer:    
-        config = json.loads(config_buffer.read())    
+        config = json.loads(config_buffer.read())
+        print('config loaded')
+        print(config)
         train(config)
 
 def parse_arguments(argv):
