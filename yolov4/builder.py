@@ -19,10 +19,11 @@ class ModelBuilder():
         self.config = config
         self.preprocess_input = None
         anchors = [12, 16,  19, 36,  40, 28,  36, 75,  76, 55,  72, 146,  142, 110,  192, 243,  459, 401]
+        anchors = [float(x) for x in anchors]
         anchors = np.array(anchors).reshape(-1, 2)
         self.anchors = anchors
         
-    def build_model(self):
+    def build_model(self, training=True):
         
         input_width   = self.config['model']['input_width']
         input_height  = self.config['model']['input_height']
@@ -44,6 +45,15 @@ class ModelBuilder():
         image_input = Input(shape=(input_width, input_height, 3))
         print('Create YOLOv4 model with {} anchors and {} classes.'.format(num_anchors, class_num))
         model_body = yolo_body(image_input, num_anchors//3, class_num)
+        
+        if training is False:
+            return model_body
+
+        if train_base is False:
+            freeze_layers = 249
+            for i in range(freeze_layers): model_body.layers[i].trainable = False
+            print('Freeze the first {} layers of total {} layers.'.format(freeze_layers, len(model_body.layers)))
+        
 #         model_body.summary()
 
         #------------------------------------------------------#

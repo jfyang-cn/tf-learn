@@ -349,10 +349,10 @@ def yolo_eval(yolo_outputs,
 #---------------------------------------------------#
 #   图片预测
 #---------------------------------------------------#
-def yolo_decodeout(yhat, image_h, image_w, colors):
+def yolo_decodeout(yhat, image_h, image_w, colors, input_w=416, input_h=416, nms_thresh=0.25, class_thresh=0.25, obj_thresh=0.25):
     
-    input_w, input_h = 416, 416
-    obj_thresh = 0.25
+#     input_w, input_h = 416, 416
+#     obj_thresh = 0.25
     anchors = [[142, 110, 192, 243, 459, 401], [36, 75, 76, 55, 72, 146], [12, 16, 19, 36, 40, 28]]
     labels = ['person', 'bicycle', 'car', 'motorbike', 'aeroplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'sofa', 'pottedplant', 'bed', 'diningtable', 'toilet', 'tvmonitor', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
     scales_x_y = [1.05, 1.1, 1.2]
@@ -366,13 +366,13 @@ def yolo_decodeout(yhat, image_h, image_w, colors):
     
     correct_yolo_boxes(boxes, image_h, image_w, input_h, input_w)
     
-    do_nms(boxes, 0.25)
+    do_nms(boxes, nms_thresh)
 
 #     print("nb boxes remaining; ",len(boxes))
     
-    class_threshold = 0.25
+#     class_threshold = 0.25
 #     colors = generate_colors(labels)
-    v_boxes, v_labels, v_scores, v_colors = get_boxes(boxes, labels, class_threshold, colors)
+    v_boxes, v_labels, v_scores, v_colors = get_boxes(boxes, labels, class_thresh, colors)
 #     print("nb boxes remaining; ",len(v_boxes))
     
     return v_boxes, v_scores, v_labels, v_colors

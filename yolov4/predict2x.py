@@ -1,155 +1,119 @@
-'''
-predict.py有几个注意点
-1、无法进行批量预测，如果想要批量预测，可以利用os.listdir()遍历文件夹，利用Image.open打开图片文件进行预测。
-2、如果想要保存，利用r_image.save("img.jpg")即可保存。
-3、如果想要获得框的坐标，可以进入detect_image函数，读取top,left,bottom,right这四个值。
-4、如果想要截取下目标，可以利用获取到的top,left,bottom,right这四个值在原图上利用矩阵的方式进行截取。
-'''
-from tensorflow import keras
-from tensorflow.keras.layers import Input
-from PIL import Image
-import os
-
-from nets.yolo4 import yolo_body
-from yolo import YOLO
+import os, datetime, sys, argparse
+# sys.path.append("..")
+# sys.path.append(".")
+# sys.path.append("")
 import numpy as np
+import json
+import colorsys
+import cv2
+
+from tensorflow.keras.callbacks import ModelCheckpoint,TensorBoard,EarlyStopping,ReduceLROnPlateau
+from tensorflow.keras import callbacks
+from builder import ModelBuilder
+from nets.yolo4 import yolo_body, yolo_eval, yolo_decodeout
 
 import tensorflow as tf
 print(tf.__version__)
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 print(physical_devices)
-tf.config.experimental.set_visible_devices(physical_devices[3:], 'GPU')
+tf.config.experimental.set_visible_devices(physical_devices[0:], 'GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+# Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+try:
+    tf.config.experimental.set_virtual_device_configuration(
+        physical_devices[0],
+        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6144)])
+    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    print(len(physical_devices), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+except RuntimeError as e:
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
     
 np_load_old = np.load
 np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
 
-# while True:
-#     img = input('Input image filename:')
-img1 = 'img/1.jpg'
-img2 = 'img/2.jpg'
-try:
-    image1 = Image.open(img1)
-    image2 = Image.open(img2)
-    image3 = Image.open('img/4.jpg')
-    images = []
-    # ////////////////////////
-    images.append(image3)
-#     images.append(image3)
+def predict(config, input_image, weights):
     
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     //////////////////////
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
+    input_width        = config['model']['input_width']
+    input_height       = config['model']['input_height']
+    class_num          = config['model']['class_num']   
+   
+    builder = ModelBuilder(config)
+    model = builder.build_model(training=False)
+    model.summary()
 
-#     # ////////////////////////
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-# #     //////////////////////
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-    
-#     images.append(image1)
-#     images.append(image2)
-except:
-    print('Open Error! Try again!')
-else:
-    # tf2.5
-#     strategy = tf.distribute.MirroredStrategy()
-    strategy = tf.distribute.MultiWorkerMirroredStrategy()
-    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
+    if weights is not None:
+        model.load_weights(weights)
 
-    # Open a strategy scope.
-    with strategy.scope():
-        yolo = YOLO()
+    img = cv2.imread(input_image)
+    image_h, image_w, _ = img.shape
+    print(image_h, image_w)
+    img = cv2.resize(img, (input_width, input_height))
+    print(img.shape)
+    img = img[:,:,::-1]
+    x_pred = np.array([img]).astype('float32')
+    x_pred /= 255.
+    print(x_pred.shape)
+
+    y_outs = model(x_pred)
+    y_outs = [a[0].numpy() for a in y_outs]
+    print(y_outs[0].shape)
+    print(y_outs[1].shape)
+    print(y_outs[2].shape)
+
+
+    # 画框设置不同的颜色
+    hsv_tuples = [(x / class_num, 1., 1.) for x in range(class_num)]
+    colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
+    colors = list(
+        map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)),
+            colors))
+    
+    boxes, scores, classes, colors = yolo_decodeout(y_outs, image_h, image_w, colors, 
+                                                    input_w=input_width, input_h=input_height, 
+                                                    nms_thresh=0.25, class_thresh=0.25, obj_thresh=0.5)    
+    for box in boxes:
+        print(box.xmin,box.ymin,box.xmax,box.ymax)
+    print(scores)
+    print(classes)
+    print(len(classes))
+    
+def main(args):
+    
+    config_path = args.conf
+    input_image = args.input_image
+    weights = args.weights
+    
+    with open(config_path) as config_buffer:    
+        config = json.loads(config_buffer.read())
+        print('config loaded')
+        print(config)
+        predict(config, input_image, weights)
+
+def parse_arguments(argv):
+    
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument(
+        '-c',
+        '--conf',
+        help='path to configuration file')
+    
+    parser.add_argument(
+        '-i',
+        '--input_image',
+        help='path to image file',
+        default = None)
+    
+    parser.add_argument(
+        '-w',
+        '--weights',
+        help='path to weights file',
+        default = None)
         
-        for i in range(len(images)):
-            r_images = yolo.detect_on_batch(images)
-        for i,r_image in enumerate(r_images):
-            r_image.save('out%d.jpg' % (i))
-#         r_image.show()
+    return parser.parse_args(argv)
 
-yolo.close_session()
+if __name__ == '__main__':
+    main(parse_arguments(sys.argv[1:]))

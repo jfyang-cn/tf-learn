@@ -27,7 +27,7 @@ except RuntimeError as e:
     # Virtual devices must be set before GPUs have been initialized
     print(e)
 
-is_debug = True
+is_debug = False
 
 def train(config):
     
@@ -84,16 +84,16 @@ def train(config):
         os.makedirs(dirname)
 
     timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{val_loss:.2f}.hdf5' %(model_name, timestr))
+    filepath = os.path.join(dirname, 'weights-%s-%s-{epoch:02d}-{loss:.2f}.hdf5' %(model_name, timestr))
     checkpoint = ModelCheckpoint(filepath=filepath, 
-                             monitor='val_loss',    # acc outperforms loss
+                             monitor='loss',    # acc outperforms loss
                              verbose=1, 
                              save_best_only=True, 
                              save_weights_only=True, 
                              period=1)
     
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
+    early_stopping = EarlyStopping(monitor='loss', min_delta=0, patience=10, verbose=1)
+    reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, verbose=1)
     
     # define logs for tensorboard
     tensorboard = TensorBoard(log_dir='logs', histogram_freq=0)
@@ -118,6 +118,7 @@ def train(config):
             if pretrained_weights != '':
                 model.load_weights(pretrained_weights)
 
+            print('start fitting data')
             model.fit(train_gen,
     #                   batch_size = batch_size,
                       steps_per_epoch=train_steps_per_epoch,
@@ -132,6 +133,7 @@ def train(config):
             model.save(model_file)
             print('save model to ', model_file)
     except IndexError:
+        print('pop from empty list error in tensorflow/python/distribute/distribution_strategy_context.py')
         pass  # There was a "pop from empty list" error in "tensorflow/python/distribute/distribution_strategy_context.py" that I'm ignoring
 
 def main(args):
