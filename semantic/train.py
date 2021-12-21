@@ -1,8 +1,8 @@
-import os, datetime
+import os, sys, datetime, argparse
 import numpy as np
 from tensorflow.keras.callbacks import ModelCheckpoint,TensorBoard
 from tensorflow.keras import callbacks
-from tensorflow import keras
+import tensorflow.keras.backend as K
 from data_gen import DataGen
 from model import autoencoder
 
@@ -10,9 +10,9 @@ import tensorflow as tf
 print(tf.__version__)
 
 # Try to enable Auto Mixed Precision on TF 2.0
-os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
-os.environ['TF_AUTO_MIXED_PRECISION_GRAPH_REWRITE_IGNORE_PERFORMANCE'] = '1'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
+# os.environ['TF_AUTO_MIXED_PRECISION_GRAPH_REWRITE_IGNORE_PERFORMANCE'] = '1'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def optimize_tf_gpu(tf, K):
     if tf.__version__.startswith('2'):
@@ -37,7 +37,17 @@ def optimize_tf_gpu(tf, K):
         
 optimize_tf_gpu(tf, K)
 
+
+def sparse_crossentropy(y_true, y_pred):
+    num_classes = K.shape(y_pred)[-1]
+    y_true = K.one_hot(tf.cast(y_true[..., 0], tf.int32), num_classes)
+    return K.categorical_crossentropy(y_true, y_pred)
+
 def main(args):
+    
+    traintxt = args.traintxt # '/home/philyang/drone/data/data512/train.txt'
+    path_dataset = args.dataset # '/home/philyang/drone/data/data512'
+    dataGen = DataGen(filepath=traintxt, path_dataset=path_dataset)
     
     # define checkpoint
     dataset_name = dataGen.name()
@@ -61,31 +71,42 @@ def main(args):
     if not os.path.exists(wgtdir):
         os.makedirs(wgtdir)    
 
-    autoencoder, encoder = autoencoder()
-    autoencoder.compile(optimizer=tf.keras.optimizers.Adadelta(learning_rate=0.0001), loss='binary_crossentropy')
-    encoder.summary()
-    autoencoder.summary()
+    model = autoencoder()
+    model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.001), loss=sparse_crossentropy)
+    model.summary()
     
     start_epoch = 0
     
     # Load weight of unfinish training model(optional)
-    load_model = False
-    if load_model:
-        weights_path = 'ckpt-drone/weights-20200724-183044-1220-0.24.hdf5' # name of model 
-        start_epoch = 1220
-        autoencoder.load_weights(weights_path)
+    if args.weights is not None and args.start_epoch is not None:
+        weights_path = args.weights
+        start_epoch = int(args.start_epoch)
+        model.load_weights(weights_path)
     
-#     autoencoder.fit(x, x, batch_size=batch_size, epochs=pretrain_epochs) #, callbacks=cb)
-    autoencoder.fit_generator(
-        dataGen, 
+    model.fit_generator(
+        dataGen,
+        steps_per_epoch=len(dataGen),
         initial_epoch=start_epoch, 
-        epochs=100000, 
+        epochs=1000, 
         callbacks=[checkpoint,tensorboard], 
         use_multiprocessing=False, 
-        workers=16)
+        verbose=1,
+        workers=1,
+        max_queue_size=10)
     
-    autoencoder.save_weights(save_dir + '/myae_weights.h5')
+    model.save('./model.h5')
+
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t','--traintxt', type=str, required=True, default='train.txt',
+        help='filename list for training data without dir path')
+    parser.add_argument('-d','--dataset', type=str, required=True, default='./',
+        help='dataset path for images and lables')
+    parser.add_argument('-w','--weights', type=str, required=False, default=None,
+        help='weights file path for pre-train model')
+    parser.add_argument('-s','--start_epoch', type=int, required=False, default=None,
+        help='epoch num to start with')
+    return parser.parse_args(argv)
     
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    main(args)
+    main(parse_arguments(sys.argv[1:]))
