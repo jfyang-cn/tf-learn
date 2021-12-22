@@ -45,12 +45,15 @@ def sparse_crossentropy(y_true, y_pred):
 
 def main(args):
     
-    traintxt = args.traintxt # '/home/philyang/drone/data/data512/train.txt'
     path_dataset = args.dataset # '/home/philyang/drone/data/data512'
-    dataGen = DataGen(filepath=traintxt, path_dataset=path_dataset)
+    traintxt = args.traintxt # '/home/philyang/drone/data/data512/train.txt'
+    trainGen = DataGen(filepath=traintxt, path_dataset=path_dataset)
+    
+    valtxt = args.valtxt    
+    valGen = DataGen(filepath=valtxt, path_dataset=path_dataset)
     
     # define checkpoint
-    dataset_name = dataGen.name()
+    dataset_name = trainGen.name()
     dirname = 'ckpt-' + dataset_name
     if not os.path.exists(dirname):
         os.makedirs(dirname)
@@ -58,11 +61,11 @@ def main(args):
     timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     filepath = os.path.join(dirname, 'weights-%s-{epoch:02d}-{loss:.2f}.hdf5' %(timestr))
     checkpoint = ModelCheckpoint(filepath=filepath, 
-                             monitor='loss',    # acc outperforms loss
+                             monitor='val_loss',    # acc outperforms loss
                              verbose=1, 
-                             save_best_only=True, 
+                             save_best_only=False, 
                              save_weights_only=True, 
-                             period=10)
+                             period=5)
 
     # define logs for tensorboard
     tensorboard = TensorBoard(log_dir='logs', histogram_freq=0)
@@ -84,8 +87,10 @@ def main(args):
         model.load_weights(weights_path)
     
     model.fit_generator(
-        dataGen,
-        steps_per_epoch=len(dataGen),
+        generator=trainGen,
+        steps_per_epoch=len(trainGen),
+        validation_data=valGen,
+        validation_steps=len(valGen),
         initial_epoch=start_epoch, 
         epochs=1000, 
         callbacks=[checkpoint,tensorboard], 
@@ -100,6 +105,8 @@ def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('-t','--traintxt', type=str, required=True, default='train.txt',
         help='filename list for training data without dir path')
+    parser.add_argument('-v','--valtxt', type=str, required=True, default='val.txt',
+        help='filename list for validating data without dir path')
     parser.add_argument('-d','--dataset', type=str, required=True, default='./',
         help='dataset path for images and lables')
     parser.add_argument('-w','--weights', type=str, required=False, default=None,
