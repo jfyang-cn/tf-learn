@@ -74,13 +74,18 @@ class DataGen(Sequence):
             self.X[i] = np.array(img)
             
             path_file = os.path.join(self.path_dataset, 'labels/%s.png' % (ID))
+#             label = cv2.imread(path_file, cv2.IMREAD_GRAYSCALE)
+            
             f = open(path_file, 'rb')
             label = Image.open(f)
             label.load()
             label = np.array(label)
-            label = cv2.resize(label, self.target_size, interpolation = cv2.INTER_NEAREST)            
+
+            label = cv2.resize(label, self.target_size, interpolation = cv2.INTER_NEAREST)         
+#             label = cv2.resize(label, self.target_size)
             y = label.flatten()
             y[y>(self.class_num-1)] = 0
+#             y = np.eye(3)[y]
             self.Y[i] = np.expand_dims(y, -1)
             f.close()
             img = None
